@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CMMS Real-Time Monitoring</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #22c55e;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red:    #ef4444;
+      --bg:     #0f172a;
+      --sidebar:#1e293b;
+      --card:   #1e293b;
+      --border: #334155;
+      --text:   #e2e8f0;
+      --muted:  #94a3b8;
+      --accent: #3b82f6;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--sidebar);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+    header .subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    #last-update {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .refresh-btn {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .refresh-btn:hover { opacity: 0.85; }
+    .ref-date-wrap { display: flex; align-items: center; gap: 8px; }
+    .ref-date-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    #ref-date {
+      background: var(--sidebar); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: 0.78rem; padding: 5px 8px; cursor: pointer;
+    }
+    #ref-date:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+    /* ── Alert bar ── */
+    #alert-bar {
+      background: #0c1629;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .alert-bar-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 1.5px solid transparent;
+    }
+    .badge-GREEN  { background: #14532d44; color: var(--green);  border-color: var(--green); }
+    .badge-YELLOW { background: #78350f44; color: var(--yellow); border-color: var(--yellow); }
+    .badge-ORANGE { background: #7c2d1244; color: var(--orange); border-color: var(--orange); }
+    .badge-RED    { background: #7f1d1d44; color: var(--red);    border-color: var(--red); }
+
+    /* ── Main layout ── */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left panel: parts list ── */
+    #parts-panel {
+      width: 380px;
+      min-width: 300px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #parts-panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #parts-panel-header span {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    #filter-bar {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+    }
+    .filter-btn {
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover, .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .filter-btn.active-GREEN  { background: var(--green);  color: #000; border-color: var(--green); }
+    .filter-btn.active-YELLOW { background: var(--yellow); color: #000; border-color: var(--yellow); }
+    .filter-btn.active-ORANGE { background: var(--orange); color: #000; border-color: var(--orange); }
+    .filter-btn.active-RED    { background: var(--red);    color: #fff; border-color: var(--red); }
+
+    #parts-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .part-row {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1a2840;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      transition: background 0.12s;
+    }
+    .part-row:hover { background: #263452; }
+    .part-row.selected { background: #1d3a6b; border-left: 3px solid var(--accent); }
+    .risk-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .dot-GREEN  { background: var(--green); }
+    .dot-YELLOW { background: var(--yellow); }
+    .dot-ORANGE { background: var(--orange); }
+    .dot-RED    { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    .part-info { min-width: 0; }
+    .part-name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .part-meta { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .part-stats { text-align: right; font-size: 0.72rem; }
+    .part-stats .surv { font-weight: 700; }
+    .part-stats .months { color: var(--muted); margin-top: 2px; }
+
+    /* ── Right panel: detail ── */
+    #detail-panel {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    #detail-placeholder {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    #detail-content { display: none; }
+    #detail-content.visible { display: flex; flex-direction: column; gap: 20px; }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .detail-title { font-size: 1.25rem; font-weight: 700; }
+    .detail-subtitle { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+    .risk-badge-large {
+      padding: 6px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      flex-shrink: 0;
+    }
+    .risk-GREEN  { background: #14532d; color: var(--green); }
+    .risk-YELLOW { background: #422006; color: var(--yellow); }
+    .risk-ORANGE { background: #431407; color: var(--orange); }
+    .risk-RED    { background: #450a0a; color: var(--red); }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .metric-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+    .metric-value { font-size: 1.3rem; font-weight: 800; }
+    .metric-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
+    .val-green  { color: var(--green); }
+    .val-yellow { color: var(--yellow); }
+    .val-orange { color: var(--orange); }
+    .val-red    { color: var(--red); }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .chart-card h3 { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 14px; }
+    .chart-wrapper { position: relative; height: 260px; }
+
+    .replace-form {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .replace-form h3 { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 14px; }
+    .replace-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .replace-row label { font-size: 0.8rem; color: var(--muted); }
+    .replace-row input[type="date"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+    .replace-row input[type="date"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .submit-btn {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    .submit-btn:hover { opacity: 0.85; }
+    #replace-msg { font-size: 0.78rem; margin-top: 8px; }
+
+    /* scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Tab navigation ── */
+    #tab-nav {
+      background: var(--sidebar);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── Panel visibility ── */
+    .panel { display: flex; flex: 1; overflow: hidden; }
+    .panel.hidden { display: none; }
+
+    /* ── PM Optimizer panel ── */
+    .optimizer-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+    /* 상단: 설정 바 */
+    .opt-settings.card {
+      background: #1e293b;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      flex-shrink: 0;
+    }
+    /* 하단: 테이블 + 차트 2단 */
+    .opt-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      gap: 0;
+    }
+    .opt-table.card {
+      width: 52%;
+      min-width: 0;
+      background: #1e293b;
+      border-right: 1px solid var(--border);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .opt-chart.card {
+      flex: 1;
+      min-width: 0;
+      background: #0f172a;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .opt-settings.card h3, .opt-table.card h3, .opt-chart.card h3 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .settings-grid { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
+    .setting-item { display: flex; flex-direction: column; gap: 4px; }
+    .setting-item label { color: var(--muted); font-size: 12px; }
+    .setting-item select, .setting-item input[type=range] { min-width: 160px; }
+    .setting-item select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+    }
+    .formula-box {
+      background: #0f172a;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      white-space: nowrap;
+    }
+    .strategy-badges { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; flex-shrink: 0; }
+    .strategy-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge-OPTIMAL_PM { background: #166534; color: #4ade80; }
+    .badge-RUN_TO_FAILURE { background: #3b0764; color: #a78bfa; }
+    .badge-RANDOM_FAILURE { background: #1e3a8a; color: #60a5fa; }
+    .badge-INSUFFICIENT_DATA { background: #374151; color: #9ca3af; }
+    .opt-table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
+    #opt-results-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #opt-results-table th {
+      background: #0f172a;
+      color: #64748b;
+      padding: 6px 8px;
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      position: sticky; top: 0;
+    }
+    #opt-results-table td { padding: 6px 8px; border-bottom: 1px solid #0f172a; color: var(--text); white-space: nowrap; }
+    #opt-results-table tr:hover { background: #0f172a; cursor: pointer; }
+    #opt-results-table tr.selected { background: #1e3a5f; }
+    .strategy-OPTIMAL_PM { color: #4ade80; font-weight: 600; }
+    .strategy-RUN_TO_FAILURE { color: #a78bfa; }
+    .strategy-RANDOM_FAILURE { color: #60a5fa; }
+    .strategy-INSUFFICIENT_DATA { color: #6b7280; }
+    .chart-hint { color: #475569; font-size: 11px; margin: 0 0 6px; flex-shrink: 0; }
+    .chart-wrap { flex: 1; min-height: 0; position: relative; }
+    .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+    .curve-info { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 8px; font-size: 11px; flex-shrink: 0; }
+    .curve-info .info-item { display: flex; flex-direction: column; gap: 1px; }
+    .curve-info .info-label { font-size: 10px; color: #475569; text-transform: uppercase; }
+    .curve-info .info-value { color: var(--text); font-weight: 600; }
+
+    /* ── Machine Status panel ── */
+    .machine-list-panel {
+      width: 260px; flex-shrink: 0;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .machine-list-title { font-size: 0.68rem; color: var(--muted); padding: 2px 0 6px; letter-spacing: 0.07em; text-transform: uppercase; }
+    .machine-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid transparent;
+      border-radius: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .machine-card:hover { background: #243044; }
+    .machine-card.selected { background: #1a2744; border-color: var(--accent) !important; }
+    .machine-card.risk-RED    { border-left-color: var(--red); }
+    .machine-card.risk-ORANGE { border-left-color: var(--orange); }
+    .machine-card-title { font-weight: 700; font-size: 0.85rem; }
+    .machine-card-sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .machine-risk-chips { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+    .risk-chip { font-size: 0.64rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+    .risk-chip-RED    { background: rgba(239,68,68,0.18);  color: var(--red); }
+    .risk-chip-ORANGE { background: rgba(249,115,22,0.18); color: var(--orange); }
+    .risk-chip-YELLOW { background: rgba(234,179,8,0.14);  color: var(--yellow); }
+    .risk-chip-GREEN  { background: rgba(34,197,94,0.12);  color: var(--green); }
+
+    .machine-charts-panel { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .machine-charts-placeholder { color: var(--muted); text-align: center; padding-top: 60px; font-size: 0.85rem; }
+    .machine-charts-header { font-weight: 700; font-size: 0.95rem; margin-bottom: 14px; color: var(--text); }
+    .mini-charts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+    .mini-chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .mini-chart-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .mini-chart-title { font-size: 0.8rem; font-weight: 600; }
+    .mini-risk-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .mini-canvas-wrap { height: 130px; position: relative; }
+    .mini-chart-footer { display: flex; gap: 14px; margin-top: 6px; font-size: 0.68rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div>
+    <h1>CMMS Real-Time Monitoring System</h1>
+    <div class="subtitle">Predictive Maintenance &mdash; Survival Probability Dashboard</div>
+  </div>
+  <div class="header-right">
+    <div class="ref-date-wrap">
+      <span class="ref-date-label">기준 날짜</span>
+      <input type="date" id="ref-date" onchange="onRefDateChange()" />
+    </div>
+    <div id="last-update">Last update: —</div>
+    <button class="refresh-btn" onclick="loadParts()">Refresh</button>
+  </div>
+</header>
+
+<!-- Alert summary bar -->
+<div id="alert-bar">
+  <span class="alert-bar-label">Fleet Status</span>
+  <span class="badge badge-GREEN"  id="badge-GREEN">&#9679; — OK</span>
+  <span class="badge badge-YELLOW" id="badge-YELLOW">&#9679; — Monitor</span>
+  <span class="badge badge-ORANGE" id="badge-ORANGE">&#9679; — Plan Replacement</span>
+  <span class="badge badge-RED"    id="badge-RED">&#9679; — Replace Now</span>
+</div>
+
+<!-- Tab navigation -->
+<div id="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('monitor')" id="tab-monitor">모니터링</button>
+  <button class="tab-btn" onclick="switchTab('machines')" id="tab-machines">머신 현황</button>
+  <button class="tab-btn" onclick="switchTab('optimizer')" id="tab-optimizer">PM 최적화</button>
+</div>
+
+<!-- Main -->
+<main>
+
+<!-- Monitor panel -->
+<div id="panel-monitor" class="panel">
+  <!-- Left: parts list -->
+  <div id="parts-panel">
+    <div id="parts-panel-header">
+      <span>Parts</span>
+      <span id="parts-count" style="font-size:0.75rem;color:var(--muted)"></span>
+    </div>
+    <div id="filter-bar">
+      <button class="filter-btn active" data-filter="ALL" onclick="setFilter('ALL',this)">All</button>
+      <button class="filter-btn" data-filter="RED"    onclick="setFilter('RED',this)">Red</button>
+      <button class="filter-btn" data-filter="ORANGE" onclick="setFilter('ORANGE',this)">Orange</button>
+      <button class="filter-btn" data-filter="YELLOW" onclick="setFilter('YELLOW',this)">Yellow</button>
+      <button class="filter-btn" data-filter="GREEN"  onclick="setFilter('GREEN',this)">Green</button>
+    </div>
+    <div id="parts-list"></div>
+  </div>
+
+  <!-- Right: detail -->
+  <div id="detail-panel">
+    <div id="detail-placeholder">Select a part to view details</div>
+    <div id="detail-content">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="d-name"></div>
+          <div class="detail-subtitle" id="d-meta"></div>
+        </div>
+        <div class="risk-badge-large" id="d-risk-badge"></div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Survival Probability</div>
+          <div class="metric-value" id="d-survival"></div>
+          <div class="metric-sub">chance part is still functional</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Failure Probability</div>
+          <div class="metric-value" id="d-failure"></div>
+          <div class="metric-sub">cumulative failure risk</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Operating Time</div>
+          <div class="metric-value" id="d-months"></div>
+          <div class="metric-sub" id="d-last-replaced"></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Months to 80% Failure</div>
+          <div class="metric-value" id="d-m80"></div>
+          <div class="metric-sub">from reference date</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Recommended Replacement</div>
+          <div class="metric-value" id="d-rec-date" style="font-size:1rem"></div>
+          <div class="metric-sub" id="d-rec-month"></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Urgency</div>
+          <div class="metric-value" id="d-urgency" style="font-size:1rem"></div>
+          <div class="metric-sub" id="d-location"></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Survival Probability Curve</h3>
+        <div class="chart-wrapper">
+          <canvas id="survivalChart"></canvas>
+        </div>
+      </div>
+
+      <div class="replace-form">
+        <h3>Log Replacement</h3>
+        <div class="replace-row">
+          <label for="replace-date">Replacement Date:</label>
+          <input type="date" id="replace-date" />
+          <button class="submit-btn" onclick="logReplacement()">Submit</button>
+        </div>
+        <div id="replace-msg"></div>
+      </div>
+    </div>
+  </div>
+</div><!-- /panel-monitor -->
+
+<!-- Machine Status panel -->
+<div id="panel-machines" class="panel hidden">
+  <div class="machine-list-panel">
+    <div class="machine-list-title">RED / ORANGE 교체 필요 머신</div>
+    <div id="machine-cards-list"></div>
+  </div>
+  <div class="machine-charts-panel">
+    <div class="machine-charts-placeholder" id="machine-charts-placeholder">머신을 선택하면 부품별 생존확률 그래프가 표시됩니다</div>
+    <div id="machine-charts-content" style="display:none">
+      <div class="machine-charts-header" id="machine-charts-title"></div>
+      <div class="mini-charts-grid" id="mini-charts-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PM Optimizer panel -->
+<div id="panel-optimizer" class="panel hidden">
+  <div class="optimizer-container">
+
+    <!-- 설정 바 (상단) -->
+    <div class="opt-settings card">
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label>장비 유형</label>
+          <select id="opt-equip-type" onchange="runOptimization()">
+            <option value="OLD">OLD (2006년 이전)</option>
+            <option value="NEW">NEW (2018년 이후)</option>
+            <option value="ACCEL">ACCEL (5x 가속 시나리오)</option>
+            <option value="ALL">ALL (전체 통합)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label>관측 기간: <span id="obs-period-display">7</span>년</label>
+          <input type="range" id="obs-period" min="1" max="20" value="7" step="1"
+                 oninput="document.getElementById('obs-period-display').textContent=this.value; runOptimization()">
+        </div>
+        <div class="setting-item">
+          <label>RM 가중치: <span id="weight-display">3.0</span>배</label>
+          <input type="range" id="rm-weight" min="1" max="10" value="3" step="0.5"
+                 oninput="document.getElementById('weight-display').textContent=parseFloat(this.value).toFixed(1); runOptimization()">
+        </div>
+        <div class="formula-box">
+          C(T) = (P/T) &times; (1 + w &times; H(T)) &nbsp;|&nbsp; H(T) = &minus;ln(S(T)) &nbsp;[실측 생존확률 기반]
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 2단 레이아웃 -->
+    <div class="opt-body">
+
+      <!-- 좌: 결과 테이블 -->
+      <div class="opt-table card">
+        <h3>부품별 최적 PM 주기 <span id="strategy-summary" class="strategy-badges" style="display:inline-flex;gap:6px;vertical-align:middle;"></span></h3>
+        <div class="opt-table-wrap">
+          <table id="opt-results-table">
+            <thead>
+              <tr>
+                <th>부품명</th>
+                <th>β 추세</th>
+                <th>전략</th>
+                <th>최적 PM (월)</th>
+                <th>최적 PM (일)</th>
+                <th>생존율</th>
+                <th>PM 횟수</th>
+                <th>RM 횟수</th>
+                <th>총비용</th>
+              </tr>
+            </thead>
+            <tbody id="opt-results-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 우: 비용 곡선 차트 -->
+      <div class="opt-chart card">
+        <h3>비용 곡선 <span id="selected-part-name" style="color:#4ade80;font-weight:600;"></span></h3>
+        <p class="chart-hint">테이블에서 부품을 클릭하면 비용 곡선이 표시됩니다</p>
+        <div class="chart-wrap">
+          <canvas id="cost-curve-chart"></canvas>
+        </div>
+        <div id="cost-curve-info" class="curve-info"></div>
+      </div>
+
+    </div><!-- /opt-body -->
+  </div>
+</div><!-- /panel-optimizer -->
+
+</main>
+
+<script>
+  let allParts = [];
+  let currentFilter = 'ALL';
+  let selectedPartId = null;
+  let survivalChart = null;
+
+  const riskColors = {
+    GREEN:  '#22c55e',
+    YELLOW: '#eab308',
+    ORANGE: '#f97316',
+    RED:    '#ef4444',
+  };
+
+  const riskOrder = { RED: 0, ORANGE: 1, YELLOW: 2, GREEN: 3 };
+
+  // ── Reference date ───────────────────────────────────────────────────────────
+  function getRefDate() {
+    return document.getElementById('ref-date').value || new Date().toISOString().slice(0, 10);
+  }
+  function onRefDateChange() {
+    loadParts().then(() => {
+      if (selectedMachineId) {
+        const parts = allParts.filter(p => p.machine_id === selectedMachineId);
+        if (parts.length) selectMachine(selectedMachineId, parts[0].machine_name, parts);
+      }
+    });
+    if (selectedPartId) loadPartDetail(selectedPartId);
+  }
+
+  // ── Load parts list ──────────────────────────────────────────────────────────
+  async function loadParts() {
+    try {
+      const res = await fetch(`/api/parts?reference_date=${getRefDate()}`);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      allParts = data.parts;
+
+      updateAlertBar(data.summary);
+      renderPartsList();
+      renderMachineCards();
+
+      const now = new Date().toLocaleTimeString();
+      document.getElementById('last-update').textContent = `Last update: ${now}`;
+    } catch (e) {
+      console.error('Failed to load parts:', e);
+    }
+  }
+
+  function updateAlertBar(summary) {
+    const labels = { GREEN: 'OK', YELLOW: 'Monitor', ORANGE: 'Plan Replacement', RED: 'Replace Now' };
+    for (const level of ['GREEN', 'YELLOW', 'ORANGE', 'RED']) {
+      const el = document.getElementById(`badge-${level}`);
+      el.textContent = `\u25cf ${summary[level]} ${labels[level]}`;
+    }
+  }
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('#filter-bar .filter-btn').forEach(b => {
+      b.className = 'filter-btn';
+    });
+    btn.classList.add('active');
+    if (filter !== 'ALL') btn.classList.add(`active-${filter}`);
+    renderPartsList();
+  }
+
+  function renderPartsList() {
+    const list = document.getElementById('parts-list');
+    list.innerHTML = '';
+
+    let filtered = allParts;
+    if (currentFilter !== 'ALL') {
+      filtered = allParts.filter(p => p.risk_level === currentFilter);
+    }
+
+    // Sort: by risk then failure_prob desc
+    filtered = [...filtered].sort((a, b) => {
+      const rd = riskOrder[a.risk_level] - riskOrder[b.risk_level];
+      if (rd !== 0) return rd;
+      return b.failure_prob - a.failure_prob;
+    });
+
+    document.getElementById('parts-count').textContent = `${filtered.length} parts`;
+
+    filtered.forEach(part => {
+      const row = document.createElement('div');
+      row.className = 'part-row' + (part.part_id === selectedPartId ? ' selected' : '');
+      row.dataset.partId = part.part_id;
+
+      const survPct = (part.survival_prob * 100).toFixed(1);
+      const failPct = (part.failure_prob * 100).toFixed(1);
+      const color = riskColors[part.risk_level];
+      const machineName = part.machine_name || '';
+
+      row.innerHTML = `
+        <div class="risk-dot dot-${part.risk_level}"></div>
+        <div class="part-info">
+          <div class="part-name">${escHtml(part.part_name)}</div>
+          <div class="part-meta">${escHtml(machineName)} &middot; ${escHtml(part.location || '')}</div>
+        </div>
+        <div class="part-stats">
+          <div class="surv" style="color:${color}">${survPct}%</div>
+          <div class="months">${part.operating_months}mo</div>
+        </div>`;
+
+      row.addEventListener('click', () => loadPartDetail(part.part_id));
+      list.appendChild(row);
+    });
+  }
+
+  // ── Load part detail ─────────────────────────────────────────────────────────
+  async function loadPartDetail(partId) {
+    selectedPartId = partId;
+    renderPartsList(); // update selection highlight
+
+    try {
+      const res = await fetch(`/api/parts/${partId}?reference_date=${getRefDate()}`);
+      if (!res.ok) throw new Error('Part not found');
+      const data = await res.json();
+      renderDetail(data.part, data.machine, data.survival_curve, data.data_range_months);
+    } catch (e) {
+      console.error('Failed to load part detail:', e);
+    }
+  }
+
+  function renderDetail(part, machine, curve, dataRangeMonths) {
+    document.getElementById('detail-placeholder').style.display = 'none';
+    const dc = document.getElementById('detail-content');
+    dc.classList.add('visible');
+
+    const risk = part.risk_level;
+    const color = riskColors[risk];
+
+    document.getElementById('d-name').textContent = part.part_name;
+    document.getElementById('d-meta').textContent =
+      `${machine.machine_name} (${machine.machine_id}) · ${part.location || ''} · ${machine.equipment_type} equipment`;
+
+    const badge = document.getElementById('d-risk-badge');
+    badge.textContent = risk;
+    badge.className = `risk-badge-large risk-${risk}`;
+
+    // Metrics
+    const survPct = (part.survival_prob * 100).toFixed(1) + '%';
+    const failPct = (part.failure_prob * 100).toFixed(1) + '%';
+    const valClass = { GREEN:'val-green', YELLOW:'val-yellow', ORANGE:'val-orange', RED:'val-red' }[risk];
+
+    document.getElementById('d-survival').innerHTML = `<span class="${valClass}">${survPct}</span>`;
+    document.getElementById('d-failure').innerHTML  = `<span class="${valClass}">${failPct}</span>`;
+    document.getElementById('d-months').innerHTML   = `<span>${part.operating_months}<small style="font-size:0.7rem;color:var(--muted)"> mo</small></span>`;
+    document.getElementById('d-last-replaced').textContent = `Last replaced: ${part.last_replacement_date}`;
+
+    const m80 = part.months_to_80pct_failure;
+    document.getElementById('d-m80').textContent = m80 != null ? `${m80} mo` : 'N/A';
+
+    const recDate = part.recommended_replacement_date || 'N/A';
+    document.getElementById('d-rec-date').textContent = recDate;
+    const recMo = part.recommended_replacement_month;
+    document.getElementById('d-rec-month').textContent = recMo != null ? `at ${recMo} operating months` : '';
+
+    document.getElementById('d-urgency').textContent = part.urgency.replace(/_/g, ' ');
+    document.getElementById('d-location').textContent = part.location || '';
+
+    // Chart
+    renderChart(curve, part.operating_months, dataRangeMonths);
+
+    // Pre-fill replacement date
+    document.getElementById('replace-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('replace-msg').textContent = '';
+    document.getElementById('replace-msg').style.color = '';
+  }
+
+  function renderChart(curve, currentMonth, dataRangeMonths) {
+    const ctx = document.getElementById('survivalChart').getContext('2d');
+    if (survivalChart) { survivalChart.destroy(); survivalChart = null; }
+
+    const labels   = curve.map(p => p.month);
+    const survData = curve.map(p => +(p.survival * 100).toFixed(2));
+    const failData = curve.map(p => +(p.failure * 100).toFixed(2));
+
+    // Interpolate survival at exact currentMonth for the marker dot
+    let currentSurv = survData[survData.length - 1] || 0;
+    for (let i = 0; i < curve.length - 1; i++) {
+      if (curve[i].month <= currentMonth && curve[i + 1].month >= currentMonth) {
+        const frac = (currentMonth - curve[i].month) / ((curve[i + 1].month - curve[i].month) || 1);
+        currentSurv = (curve[i].survival + frac * (curve[i + 1].survival - curve[i].survival)) * 100;
+        break;
+      }
+    }
+
+    survivalChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: '생존확률 %',
+            data: survData,
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34,197,94,0.07)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0,
+            segment: {
+              borderColor: c => labels[c.p0DataIndex] > dataRangeMonths ? 'rgba(34,197,94,0.35)' : '#22c55e',
+              borderDash:  c => labels[c.p0DataIndex] > dataRangeMonths ? [5, 3] : undefined,
+            },
+          },
+          {
+            label: '고장확률 %',
+            data: failData,
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.05)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: true,
+            tension: 0,
+            segment: {
+              borderColor: c => labels[c.p0DataIndex] > dataRangeMonths ? 'rgba(239,68,68,0.3)' : '#ef4444',
+              borderDash:  c => labels[c.p0DataIndex] > dataRangeMonths ? [5, 3] : undefined,
+            },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+          tooltip: {
+            backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1,
+            titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+            callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%` }
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: '교체 후 경과 개월 (months since replacement)', color: '#64748b', font: { size: 11 } },
+            ticks: { color: '#64748b', maxTicksLimit: 14, font: { size: 10 } },
+            grid: { color: '#1e293b' },
+          },
+          y: {
+            min: 0, max: 100,
+            title: { display: true, text: '확률 (%)', color: '#64748b', font: { size: 11 } },
+            ticks: { color: '#64748b', font: { size: 10 }, callback: v => v + '%' },
+            grid: { color: '#283348' },
+          },
+        },
+      },
+      plugins: [{
+        id: 'positionMarker',
+        afterDraw(chart) {
+          const { ctx: c, scales: { x, y } } = chart;
+          const lbs = chart.data.labels;
+
+          // ① 실측 데이터 한계선 (회색 점선)
+          if (dataRangeMonths != null) {
+            const drIdx = lbs.reduce((bi, l, i) => Math.abs(l - dataRangeMonths) < Math.abs(lbs[bi] - dataRangeMonths) ? i : bi, 0);
+            const drX = x.getPixelForValue(lbs[drIdx]);
+            c.save();
+            c.setLineDash([3, 3]);
+            c.strokeStyle = 'rgba(100,116,139,0.55)';
+            c.lineWidth = 1;
+            c.beginPath(); c.moveTo(drX, y.top); c.lineTo(drX, y.bottom); c.stroke();
+            c.fillStyle = 'rgba(100,116,139,0.75)';
+            c.font = '10px system-ui';
+            c.fillText('◀ 실측', drX - 36, y.top + 12);
+            c.fillText('외삽 ▶', drX + 4,  y.top + 12);
+            c.restore();
+          }
+
+          // ② 현재 위치 수직선 + 마커 + 라벨 박스
+          if (currentMonth == null) return;
+          const ni = lbs.reduce((bi, l, i) => Math.abs(l - currentMonth) < Math.abs(lbs[bi] - currentMonth) ? i : bi, 0);
+          const xPos = x.getPixelForValue(lbs[ni]);
+          const yPos = y.getPixelForValue(+currentSurv.toFixed(1));
+
+          c.save();
+          // 수직선
+          c.setLineDash([6, 4]);
+          c.strokeStyle = '#f97316';
+          c.lineWidth = 2;
+          c.beginPath(); c.moveTo(xPos, y.top); c.lineTo(xPos, y.bottom); c.stroke();
+          c.setLineDash([]);
+
+          // 마커 점
+          c.beginPath();
+          c.arc(xPos, yPos, 7, 0, Math.PI * 2);
+          c.fillStyle = '#f97316';
+          c.fill();
+          c.strokeStyle = '#fff';
+          c.lineWidth = 2;
+          c.stroke();
+
+          // 라벨 박스
+          const t1 = `현재: ${(+currentMonth).toFixed(1)} 개월`;
+          const t2 = `S = ${currentSurv.toFixed(1)} %`;
+          const bw = 126, bh = 38, br = 5;
+          const bx = xPos + 12 < x.right - bw - 4 ? xPos + 12 : xPos - bw - 12;
+          const by = Math.max(y.top + 4, yPos - bh - 6);
+          c.fillStyle = 'rgba(15,23,42,0.88)';
+          c.strokeStyle = '#f97316';
+          c.lineWidth = 1.5;
+          c.beginPath();
+          if (c.roundRect) c.roundRect(bx, by, bw, bh, br);
+          else { c.rect(bx, by, bw, bh); }
+          c.fill(); c.stroke();
+          c.font = 'bold 11px system-ui';
+          c.fillStyle = '#f97316';
+          c.fillText(t1, bx + 8, by + 14);
+          c.font = '11px system-ui';
+          c.fillStyle = '#e2e8f0';
+          c.fillText(t2, bx + 8, by + 29);
+          c.restore();
+        }
+      }]
+    });
+  }
+
+  // ── Log replacement ──────────────────────────────────────────────────────────
+  async function logReplacement() {
+    if (!selectedPartId) return;
+    const dateVal = document.getElementById('replace-date').value;
+    if (!dateVal) {
+      showReplaceMsg('Please select a date.', '#ef4444');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/parts/${selectedPartId}/replacement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replacement_date: dateVal }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Error');
+      const data = await res.json();
+      showReplaceMsg(`Replacement logged. New risk: ${data.new_risk_level}`, '#22c55e');
+      await loadParts();
+      await loadPartDetail(selectedPartId);
+    } catch (e) {
+      showReplaceMsg(`Error: ${e.message}`, '#ef4444');
+    }
+  }
+
+  function showReplaceMsg(msg, color) {
+    const el = document.getElementById('replace-msg');
+    el.textContent = msg;
+    el.style.color = color;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ── Init reference date to today ─────────────────────────────────────────────
+  document.getElementById('ref-date').value = new Date().toISOString().slice(0, 10);
+
+  // ── Auto-refresh every 60 seconds ────────────────────────────────────────────
+  loadParts();
+  setInterval(loadParts, 60000);
+
+  // ── Tab switching ─────────────────────────────────────────────────────────────
+  function switchTab(tabName) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + tabName).classList.remove('hidden');
+    document.getElementById('tab-' + tabName).classList.add('active');
+    if (tabName === 'optimizer') runOptimization();
+    if (tabName === 'machines') renderMachineCards();
+  }
+
+  // ── Machine Status ────────────────────────────────────────────────────────────
+  let selectedMachineId = null;
+  let miniCharts = [];
+
+  function renderMachineCards() {
+    // Group allParts by machine
+    const machines = {};
+    for (const p of allParts) {
+      if (!machines[p.machine_id]) {
+        machines[p.machine_id] = {
+          machine_id: p.machine_id,
+          machine_name: p.machine_name,
+          equipment_type: p.equipment_type || 'OLD',
+          parts: [],
+          risk_summary: { RED: 0, ORANGE: 0, YELLOW: 0, GREEN: 0 },
+          overall_risk: 'GREEN',
+        };
+      }
+      machines[p.machine_id].parts.push(p);
+      machines[p.machine_id].risk_summary[p.risk_level]++;
+    }
+
+    const riskOrderArr = ['RED', 'ORANGE', 'YELLOW', 'GREEN'];
+    for (const m of Object.values(machines)) {
+      for (const r of riskOrderArr) {
+        if (m.risk_summary[r] > 0) { m.overall_risk = r; break; }
+      }
+    }
+
+    // Only show machines with RED or ORANGE parts
+    const alertMachines = Object.values(machines)
+      .filter(m => m.risk_summary.RED > 0 || m.risk_summary.ORANGE > 0)
+      .sort((a, b) => riskOrder[a.overall_risk] - riskOrder[b.overall_risk]);
+
+    const container = document.getElementById('machine-cards-list');
+    container.innerHTML = '';
+
+    if (alertMachines.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:8px 0">모든 머신이 정상 상태입니다</div>';
+      return;
+    }
+
+    for (const m of alertMachines) {
+      const card = document.createElement('div');
+      card.className = `machine-card risk-${m.overall_risk}${selectedMachineId === m.machine_id ? ' selected' : ''}`;
+
+      const chips = riskOrderArr
+        .filter(r => m.risk_summary[r] > 0)
+        .map(r => `<span class="risk-chip risk-chip-${r}">${r} ${m.risk_summary[r]}</span>`)
+        .join('');
+
+      card.innerHTML = `
+        <div class="machine-card-title">${escHtml(m.machine_name)}</div>
+        <div class="machine-card-sub">${escHtml(m.machine_id)} &middot; ${m.equipment_type}</div>
+        <div class="machine-risk-chips">${chips}</div>`;
+
+      card.addEventListener('click', () => selectMachine(m.machine_id, m.machine_name, m.parts));
+      container.appendChild(card);
+    }
+  }
+
+  async function selectMachine(machineId, machineName, parts) {
+    selectedMachineId = machineId;
+    renderMachineCards();
+
+    document.getElementById('machine-charts-placeholder').style.display = 'none';
+    const content = document.getElementById('machine-charts-content');
+    content.style.display = 'block';
+    document.getElementById('machine-charts-title').textContent = `${machineName} — 부품별 생존확률`;
+
+    // Destroy old mini charts
+    for (const c of miniCharts) { try { c.destroy(); } catch(e) {} }
+    miniCharts = [];
+
+    const grid = document.getElementById('mini-charts-grid');
+    grid.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:12px">데이터 로딩 중...</div>';
+
+    // Sort: RED/ORANGE first, then by failure_prob desc
+    const sorted = [...parts].sort((a, b) => {
+      const rd = riskOrder[a.risk_level] - riskOrder[b.risk_level];
+      return rd !== 0 ? rd : b.failure_prob - a.failure_prob;
+    });
+
+    // Fetch all curve data in parallel
+    const results = await Promise.all(
+      sorted.map(p =>
+        fetch(`/api/parts/${p.part_id}?reference_date=${getRefDate()}`)
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null)
+      )
+    );
+
+    grid.innerHTML = '';
+    for (const data of results) {
+      if (!data) continue;
+      const part = data.part;
+      const color = riskColors[part.risk_level];
+      const survPct = (part.survival_prob * 100).toFixed(1);
+      const canvasId = `mini-${part.part_id}`;
+
+      const card = document.createElement('div');
+      card.className = 'mini-chart-card';
+      card.innerHTML = `
+        <div class="mini-chart-top">
+          <span class="mini-chart-title">${escHtml(part.part_name)}</span>
+          <span class="mini-risk-badge" style="background:${color}22;color:${color}">${part.risk_level}</span>
+        </div>
+        <div class="mini-canvas-wrap"><canvas id="${canvasId}"></canvas></div>
+        <div class="mini-chart-footer">
+          <span>S = <b style="color:${color}">${survPct}%</b></span>
+          <span>${part.operating_months} mo 운영</span>
+          <span>${escHtml(part.location || '')}</span>
+        </div>`;
+      grid.appendChild(card);
+
+      const chart = renderMiniChart(canvasId, data.survival_curve, part.operating_months, data.data_range_months, part.risk_level);
+      miniCharts.push(chart);
+    }
+  }
+
+  function renderMiniChart(canvasId, curve, currentMonth, dataRangeMonths, risk) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const labels   = curve.map(p => p.month);
+    const survData = curve.map(p => +(p.survival * 100).toFixed(2));
+    const color    = riskColors[risk];
+
+    // Interpolate survival at currentMonth
+    let currentSurv = survData[survData.length - 1] || 0;
+    for (let i = 0; i < curve.length - 1; i++) {
+      if (curve[i].month <= currentMonth && curve[i+1].month >= currentMonth) {
+        const frac = (currentMonth - curve[i].month) / ((curve[i+1].month - curve[i].month) || 1);
+        currentSurv = (curve[i].survival + frac * (curve[i+1].survival - curve[i].survival)) * 100;
+        break;
+      }
+    }
+
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: survData,
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,0.06)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          tension: 0,
+          segment: {
+            borderColor: c => labels[c.p0DataIndex] > dataRangeMonths ? 'rgba(34,197,94,0.28)' : '#22c55e',
+            borderDash:  c => labels[c.p0DataIndex] > dataRangeMonths ? [4, 3] : undefined,
+          },
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b', borderColor: '#334155', borderWidth: 1,
+            titleColor: '#e2e8f0', bodyColor: '#94a3b8',
+            callbacks: { label: c => ` S: ${c.parsed.y.toFixed(1)}%` },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#475569', maxTicksLimit: 8, font: { size: 9 } },
+            grid:  { color: '#1a2030' },
+          },
+          y: {
+            min: 0, max: 100,
+            ticks: { color: '#475569', font: { size: 9 }, callback: v => v + '%' },
+            grid:  { color: '#1a2030' },
+          },
+        },
+      },
+      plugins: [{
+        id: 'miniMarker',
+        afterDraw(chart) {
+          const { ctx: c, scales: { x, y } } = chart;
+          const lbs = chart.data.labels;
+
+          // Data boundary line
+          if (dataRangeMonths != null) {
+            const di = lbs.reduce((bi, l, i) => Math.abs(l - dataRangeMonths) < Math.abs(lbs[bi] - dataRangeMonths) ? i : bi, 0);
+            const dx = x.getPixelForValue(lbs[di]);
+            c.save();
+            c.setLineDash([3, 3]);
+            c.strokeStyle = 'rgba(100,116,139,0.45)';
+            c.lineWidth = 1;
+            c.beginPath(); c.moveTo(dx, y.top); c.lineTo(dx, y.bottom); c.stroke();
+            c.restore();
+          }
+
+          // Current position marker
+          if (currentMonth == null) return;
+          const ni = lbs.reduce((bi, l, i) => Math.abs(l - currentMonth) < Math.abs(lbs[bi] - currentMonth) ? i : bi, 0);
+          const xPos = x.getPixelForValue(lbs[ni]);
+          const yPos = y.getPixelForValue(+currentSurv.toFixed(1));
+
+          c.save();
+          c.setLineDash([4, 3]);
+          c.strokeStyle = color;
+          c.lineWidth = 1.5;
+          c.beginPath(); c.moveTo(xPos, y.top); c.lineTo(xPos, y.bottom); c.stroke();
+          c.setLineDash([]);
+          c.beginPath();
+          c.arc(xPos, yPos, 5, 0, Math.PI * 2);
+          c.fillStyle = color;
+          c.fill();
+          c.strokeStyle = '#fff';
+          c.lineWidth = 1.5;
+          c.stroke();
+          c.restore();
+        }
+      }]
+    });
+  }
+
+  // ── PM Optimizer ──────────────────────────────────────────────────────────────
+  let costCurveChart = null;
+  let selectedOptPart = null;
+
+  async function runOptimization() {
+    const equipType = document.getElementById('opt-equip-type').value;
+    const obsPeriod = document.getElementById('obs-period').value;
+    const weight = document.getElementById('rm-weight').value;
+
+    const tbody = document.getElementById('opt-results-body');
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#64748b;padding:20px">로딩 중...</td></tr>';
+
+    try {
+      const resp = await fetch(`/api/optimize/all-parts?equipment_type=${equipType}&obs_period_years=${obsPeriod}&weight=${weight}`);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      if (!data.parts) throw new Error('응답 형식 오류');
+      renderOptResults(data);
+    } catch(e) {
+      console.error('PM optimization error:', e);
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:20px">오류: ${e.message} — 서버 연결을 확인하세요</td></tr>`;
+    }
+  }
+
+  function renderOptResults(data) {
+    const strategyLabels = {
+      'OPTIMAL_PM':        '최적 PM',
+      'RUN_TO_FAILURE':    'Run-To-Failure',
+      'RANDOM_FAILURE':    '랜덤 고장',
+      'INSUFFICIENT_DATA': '데이터 부족'
+    };
+
+    // Strategy summary badges
+    const badges = document.getElementById('strategy-summary');
+    badges.innerHTML = Object.entries(data.strategy_summary || {}).map(([k, v]) =>
+      `<span class="strategy-badge badge-${k}">${strategyLabels[k] || k}: ${v}</span>`
+    ).join('');
+
+    // Table
+    const tbody = document.getElementById('opt-results-body');
+    tbody.innerHTML = data.parts.map((p, idx) => {
+      const isOpt = p.strategy === 'OPTIMAL_PM';
+      const beta  = p.hazard_trend_beta;
+      return `<tr onclick="selectOptPart('${escHtml(p.part_name)}', this)" id="opt-row-${idx}">
+        <td>${escHtml(p.part_name)}</td>
+        <td>${beta ? beta.toFixed(3) : '-'}</td>
+        <td class="strategy-${p.strategy}">${strategyLabels[p.strategy] || p.strategy}</td>
+        <td>${isOpt ? p.optimal_pm_months.toFixed(1) : '-'}</td>
+        <td>${isOpt ? p.optimal_pm_days.toFixed(0) : '-'}</td>
+        <td>${isOpt ? p.optimal_survival_pct.toFixed(1) + '%' : '-'}</td>
+        <td>${isOpt ? p.n_pm_per_period.toFixed(2) : '-'}</td>
+        <td>${isOpt ? p.n_rm_per_period.toFixed(2) : '-'}</td>
+        <td>${isOpt ? p.min_total_cost.toFixed(3) : '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function selectOptPart(partName, rowEl) {
+    document.querySelectorAll('#opt-results-body tr').forEach(r => r.classList.remove('selected'));
+    rowEl.classList.add('selected');
+    selectedOptPart = partName;
+
+    const equipType = document.getElementById('opt-equip-type').value;
+    const obsPeriod = document.getElementById('obs-period').value;
+    const weight = document.getElementById('rm-weight').value;
+
+    document.getElementById('selected-part-name').textContent = '— ' + partName;
+
+    try {
+      const resp = await fetch(`/api/optimize/cost-curve/${encodeURIComponent(partName)}?equipment_type=${equipType}&obs_period_years=${obsPeriod}&weight=${weight}`);
+      const data = await resp.json();
+      renderCostCurve(data);
+    } catch(e) { console.error(e); }
+  }
+
+  function renderCostCurve(data) {
+    const curve = data.cost_curve;
+    if (!curve || curve.length === 0) {
+      document.getElementById('cost-curve-info').innerHTML = '<span style="color:#ef4444">비용 곡선 데이터 없음 (실측 데이터 부족)</span>';
+      return;
+    }
+
+    const labels = curve.map(p => p.pm_interval_months.toFixed(1));
+    const pmCosts = curve.map(p => p.n_pm);
+    const rmCosts = curve.map(p => p.n_rm * data.weight);
+    const totalCosts = curve.map(p => p.total_cost);
+
+    // Find optimal index
+    const optIdx = curve.findIndex(p => p.is_optimal);
+    const minIdx = totalCosts.indexOf(Math.min(...totalCosts));
+    const markIdx = optIdx >= 0 ? optIdx : minIdx;
+
+    if (costCurveChart) costCurveChart.destroy();
+
+    const ctx = document.getElementById('cost-curve-chart').getContext('2d');
+    costCurveChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: '총 비용 C(T)', data: totalCosts, borderColor: '#f97316', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 0 },
+          { label: 'PM 비용', data: pmCosts, borderColor: '#3b82f6', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 },
+          { label: 'RM 비용 (가중)', data: rmCosts, borderColor: '#ef4444', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94a3b8' } },
+          tooltip: { mode: 'index' }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', maxTicksLimit: 10 }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+        }
+      },
+      plugins: [{
+        id: 'optimalLine',
+        afterDraw(chart) {
+          if (markIdx < 0) return;
+          const { ctx: c, scales: { x, y } } = chart;
+          const xPos = x.getPixelForValue(markIdx);
+          c.save();
+          c.setLineDash([6, 3]);
+          c.strokeStyle = '#4ade80';
+          c.lineWidth = 2;
+          c.beginPath();
+          c.moveTo(xPos, y.top);
+          c.lineTo(xPos, y.bottom);
+          c.stroke();
+          c.fillStyle = '#4ade80';
+          c.font = '11px system-ui';
+          c.fillText('최적 PM', xPos + 4, y.top + 14);
+          c.restore();
+        }
+      }]
+    });
+
+    // Info boxes
+    const r = data.optimization_result;
+    let infoHtml = `
+      <div class="info-item"><span class="info-label">전략</span><span class="info-value strategy-${r.strategy}">${r.strategy}</span></div>
+      <div class="info-item"><span class="info-label">위험 추세 β</span><span class="info-value">${r.hazard_trend_beta}</span></div>
+      <div class="info-item"><span class="info-label">데이터 범위</span><span class="info-value">${r.data_range_months} 월</span></div>`;
+    if (r.strategy === 'OPTIMAL_PM') {
+      infoHtml += `
+      <div class="info-item"><span class="info-label">최적 PM 주기</span><span class="info-value" style="color:#4ade80">${r.optimal_pm_months} 월 (${r.optimal_pm_days} 일)</span></div>
+      <div class="info-item"><span class="info-label">최적 시점 생존율</span><span class="info-value">${r.optimal_survival_pct} %</span></div>
+      <div class="info-item"><span class="info-label">PM 횟수</span><span class="info-value">${r.n_pm_per_period}</span></div>
+      <div class="info-item"><span class="info-label">예상 RM 횟수</span><span class="info-value">${r.n_rm_per_period}</span></div>
+      <div class="info-item"><span class="info-label">최소 총비용</span><span class="info-value">${r.min_total_cost}</span></div>`;
+    } else {
+      infoHtml += `<div class="info-item" style="grid-column:1/-1"><span class="info-label">권장사항</span><span class="info-value">${escHtml(r.strategy_reason)}</span></div>`;
+    }
+    document.getElementById('cost-curve-info').innerHTML = infoHtml;
+  }
+</script>
+</body>
+</html>

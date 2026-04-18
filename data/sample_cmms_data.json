@@ -1,0 +1,172 @@
+{
+  "machines": [
+    {
+      "machine_id": "MACHINE-001",
+      "machine_name": "VJ OSP Line 1",
+      "equipment_type": "OLD",
+      "installation_year": 2005,
+      "parts": [
+        {
+          "part_id": "MC001-AC-001",
+          "part_name": "Air Cylinder",
+          "last_replacement_date": "2023-08-01",
+          "location": "Station A"
+        },
+        {
+          "part_id": "MC001-SSR-001",
+          "part_name": "Solid State Relay",
+          "last_replacement_date": "2007-06-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC001-EB-001",
+          "part_name": "Electronic Board",
+          "last_replacement_date": "2005-06-01",
+          "location": "Main Cabinet"
+        },
+        {
+          "part_id": "MC001-MC-001",
+          "part_name": "Magnetic Contactor",
+          "last_replacement_date": "2012-11-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC001-TS-001",
+          "part_name": "Temperature Sensor",
+          "last_replacement_date": "2022-03-01",
+          "location": "Heater Zone 1"
+        },
+        {
+          "part_id": "MC001-HB-001",
+          "part_name": "Heater Bar",
+          "last_replacement_date": "2006-09-01",
+          "location": "Sealing Station"
+        },
+        {
+          "part_id": "MC001-ASV-001",
+          "part_name": "Air Solenoid Valve",
+          "last_replacement_date": "2021-01-01",
+          "location": "Pneumatic Panel"
+        },
+        {
+          "part_id": "MC001-PS-001",
+          "part_name": "Power Supply",
+          "last_replacement_date": "2023-12-01",
+          "location": "Main Cabinet"
+        }
+      ]
+    },
+    {
+      "machine_id": "MACHINE-002",
+      "machine_name": "VJ OSP Line 2",
+      "equipment_type": "OLD",
+      "installation_year": 2005,
+      "parts": [
+        {
+          "part_id": "MC002-SSR-001",
+          "part_name": "Solid State Relay",
+          "last_replacement_date": "2009-10-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC002-ACS-001",
+          "part_name": "Air Cylinder Sensor",
+          "last_replacement_date": "2009-05-01",
+          "location": "Station B"
+        },
+        {
+          "part_id": "MC002-TOR-001",
+          "part_name": "Thermal Overload Relay",
+          "last_replacement_date": "2013-02-01",
+          "location": "Motor Panel"
+        },
+        {
+          "part_id": "MC002-CS-001",
+          "part_name": "Cable Signal",
+          "last_replacement_date": "2020-07-01",
+          "location": "Junction Box"
+        },
+        {
+          "part_id": "MC002-MC-001",
+          "part_name": "Magnetic Contactor",
+          "last_replacement_date": "2008-03-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC002-CF-001",
+          "part_name": "Ceramic Fuse",
+          "last_replacement_date": "2023-05-01",
+          "location": "Fuse Box"
+        },
+        {
+          "part_id": "MC002-TC-001",
+          "part_name": "Temperature Controller",
+          "last_replacement_date": "2022-09-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC002-PLC-001",
+          "part_name": "PLC",
+          "last_replacement_date": "2020-01-01",
+          "location": "Main Cabinet"
+        }
+      ]
+    },
+    {
+      "machine_id": "MACHINE-003",
+      "machine_name": "VJ OSP Line 3",
+      "equipment_type": "OLD",
+      "installation_year": 2005,
+      "parts": [
+        {
+          "part_id": "MC003-AC-001",
+          "part_name": "Air Cylinder",
+          "last_replacement_date": "2022-01-01",
+          "location": "Station C"
+        },
+        {
+          "part_id": "MC003-EB-001",
+          "part_name": "Electronic Board",
+          "last_replacement_date": "2005-06-01",
+          "location": "Main Cabinet"
+        },
+        {
+          "part_id": "MC003-PBS-001",
+          "part_name": "Push Button S/W",
+          "last_replacement_date": "2023-10-01",
+          "location": "Operator Panel"
+        },
+        {
+          "part_id": "MC003-CSV-001",
+          "part_name": "Coil for Solenoid Valve",
+          "last_replacement_date": "2005-04-01",
+          "location": "Pneumatic Panel"
+        },
+        {
+          "part_id": "MC003-DCV-001",
+          "part_name": "Directional Control Valve",
+          "last_replacement_date": "2020-11-01",
+          "location": "Pneumatic Panel"
+        },
+        {
+          "part_id": "MC003-DB-001",
+          "part_name": "Display Board",
+          "last_replacement_date": "2021-08-01",
+          "location": "Operator Panel"
+        },
+        {
+          "part_id": "MC003-R-001",
+          "part_name": "Relay",
+          "last_replacement_date": "2005-06-01",
+          "location": "Control Panel"
+        },
+        {
+          "part_id": "MC003-ASV-001",
+          "part_name": "Air Solenoid Valve",
+          "last_replacement_date": "2009-08-01",
+          "location": "Pneumatic Panel"
+        }
+      ]
+    }
+  ]
+}
