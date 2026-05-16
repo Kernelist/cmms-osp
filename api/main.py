@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from core.monitor import run_monitoring_report, analyze_part
 from core.calculator import get_survival_curve
 from core.pm_optimizer import optimize_pm, compute_cost_curve, optimize_all_parts
+from core.pdm_predictor import predict_pdm, predict_all_parts
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 DATA_PATH = Path(__file__).parent.parent / "data" / "sample_cmms_data.json"
@@ -337,4 +338,116 @@ def api_optimize_all(equipment_type: str = "OLD", obs_period_years: float = 7.0,
         "equipment_type": equipment_type,
         "strategy_summary": strategy_counts,
         "parts": summary
+    }
+
+
+# ── PdM (Predictive Maintenance) Routes ──────────────────────────────────────
+
+@app.get("/api/pdm/predict/{part_id}", summary="PdM prediction for a single part")
+async def api_pdm_predict(part_id: str, reference_date: Optional[str] = None):
+    """
+    Multiple Classifier 앙상블 PdM 예측 (Susto et al. 2015).
+    기존 PM 생존모델 + Cox PH + 이력패턴 + 추세분석 4개 분류기의 가중 투표.
+    """
+    ref = _parse_ref_date(reference_date)
+    part, machine = _find_part(part_id, ref)
+    if part is None:
+        raise HTTPException(status_code=404, detail=f"Part '{part_id}' not found")
+
+    history = [part["last_replacement_date"]]
+
+    pred = predict_pdm(
+        part_name=part["part_name"],
+        equipment_type=machine["equipment_type"],
+        operating_months=part["operating_months"],
+        installation_year=machine.get("installation_year", 2005),
+        replacement_history=history,
+        reference_date=ref,
+    )
+
+    return {
+        "part_id": part_id,
+        "part_name": part["part_name"],
+        "machine_id": machine["machine_id"],
+        "machine_name": machine["machine_name"],
+        "reference_date": ref.isoformat(),
+        "operating_months": pred.operating_months,
+        "pm_risk_level": pred.pm_risk_level,
+        "pdm_risk_level": pred.ensemble_class,
+        "pdm_confidence": pred.ensemble_confidence,
+        "pdm_vs_pm": pred.pdm_vs_pm,
+        "agreement_ratio": pred.agreement_ratio,
+        "estimated_rul_months": pred.estimated_rul_months,
+        "estimated_rul_days": pred.estimated_rul_days,
+        "ensemble_probabilities": pred.ensemble_probabilities,
+        "classifiers": pred.classifiers,
+        "features": pred.features,
+    }
+
+
+@app.get("/api/pdm/model-info", summary="ML model training info")
+async def api_pdm_model_info():
+    """ML 분류기 학습 정보 및 정확도."""
+    from core.model_trainer import load_models
+    trained = load_models()
+    metrics = trained.get("metrics", {})
+    weights = metrics.get("weights", {})
+    return {
+        "models": [
+            {"name": "Survival Model", "key": "survival_model",
+             "accuracy": metrics.get("survival_model", {}).get("accuracy", 0),
+             "weight": weights.get("survival_model", 0.15), "type": "rule-based"},
+            {"name": "SBM (Sensor)", "key": "sbm",
+             "accuracy": metrics.get("sbm", {}).get("accuracy", 0),
+             "weight": weights.get("sbm", 0.15), "type": "sensor-based"},
+            {"name": "Random Forest", "key": "random_forest",
+             "accuracy": metrics.get("random_forest", {}).get("accuracy", 0),
+             "weight": weights.get("random_forest", 0.30), "type": "ml-trained"},
+            {"name": "SVM (RBF)", "key": "svm",
+             "accuracy": metrics.get("svm", {}).get("accuracy", 0),
+             "weight": weights.get("svm", 0.25), "type": "ml-trained"},
+            {"name": "Gradient Boosting", "key": "gradient_boosting",
+             "accuracy": metrics.get("gradient_boosting", {}).get("accuracy", 0),
+             "weight": weights.get("gradient_boosting", 0.30), "type": "ml-trained"},
+        ],
+        "weight_method": "log-odds (Susto et al. 2015)",
+        "feature_count": len(trained.get("feature_names", [])),
+        "feature_names": trained.get("feature_names", []),
+    }
+
+
+@app.post("/api/pdm/retrain", summary="Retrain ML models")
+async def api_pdm_retrain():
+    """ML 모델 재학습."""
+    from core.model_trainer import train_all_models
+    import core.model_trainer as mt
+    mt._cached_models = None
+    result = train_all_models(verbose=False)
+    return {
+        "status": "ok",
+        "accuracies": {
+            k: v.get("accuracy", 0) for k, v in result["metrics"].items()
+        },
+    }
+
+
+@app.get("/api/pdm/all", summary="PdM predictions for all parts")
+async def api_pdm_all(reference_date: Optional[str] = None):
+    """전체 부품 PdM 예측 결과 및 PM 대비 변화 요약."""
+    ref = _parse_ref_date(reference_date)
+    predictions = predict_all_parts(ref)
+
+    # PM vs PdM 변화 요약
+    change_summary = {"SAME": 0, "UPGRADED": 0, "DOWNGRADED": 0}
+    risk_summary = {"GREEN": 0, "YELLOW": 0, "ORANGE": 0, "RED": 0}
+    for p in predictions:
+        change_summary[p["pdm_vs_pm"]] += 1
+        risk_summary[p["pdm_risk_level"]] += 1
+
+    return {
+        "reference_date": ref.isoformat(),
+        "total_parts": len(predictions),
+        "pdm_risk_summary": risk_summary,
+        "pm_vs_pdm_changes": change_summary,
+        "predictions": predictions,
     }

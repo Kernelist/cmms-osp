@@ -17,5 +17,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Trained models (binary, regenerated via train)
+models/*.pkl
+models/metrics.json
+
 # OMC internal
 .omc/
+.vercel

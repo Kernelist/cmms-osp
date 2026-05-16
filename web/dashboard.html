@@ -525,6 +525,8 @@
   <button class="tab-btn active" onclick="switchTab('monitor')" id="tab-monitor">모니터링</button>
   <button class="tab-btn" onclick="switchTab('machines')" id="tab-machines">머신 현황</button>
   <button class="tab-btn" onclick="switchTab('optimizer')" id="tab-optimizer">PM 최적화</button>
+  <button class="tab-btn" onclick="switchTab('pdm')" id="tab-pdm" style="color:#a78bfa;">PdM 예측비교</button>
+  <button class="tab-btn" onclick="switchTab('pipeline')" id="tab-pipeline" style="color:#06b6d4;">모델 파이프라인</button>
 </div>
 
 <!-- Main -->
@@ -699,6 +701,127 @@
     </div><!-- /opt-body -->
   </div>
 </div><!-- /panel-optimizer -->
+
+<!-- PdM Comparison Panel -->
+<div id="panel-pdm" class="panel hidden" style="flex-direction:column;overflow-y:auto;padding:20px 24px;gap:16px;">
+
+  <!-- PdM Header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <h2 style="font-size:1.1rem;font-weight:700;color:#a78bfa;">PdM Multiple Classifier 예측 비교 (ML-trained)</h2>
+      <p style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Susto et al. (2015) — Survival Model + SBM (Sensor) + Random Forest + SVM + Gradient Boosting 앙상블 (28 features)</p>
+    </div>
+    <button class="refresh-btn" onclick="loadPdmData()" style="background:#7c3aed;">PdM 분석 실행</button>
+  </div>
+
+  <!-- Model Accuracy Bar -->
+  <div id="pdm-model-info" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;"></div>
+
+  <!-- Summary Cards -->
+  <div id="pdm-summary" style="display:grid;grid-template-columns:repeat(4,1fr) 1px repeat(3,1fr);gap:12px;"></div>
+
+  <!-- Comparison Table -->
+  <div class="card" style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:0.85rem;font-weight:700;color:var(--text);">부품별 PM vs PdM 비교</span>
+      <div style="display:flex;gap:6px;">
+        <button class="filter-btn" onclick="setPdmFilter('ALL',this)" style="font-size:0.7rem;">All</button>
+        <button class="filter-btn" onclick="setPdmFilter('UPGRADED',this)" style="font-size:0.7rem;color:#f97316;">상향</button>
+        <button class="filter-btn" onclick="setPdmFilter('DOWNGRADED',this)" style="font-size:0.7rem;color:#22c55e;">하향</button>
+        <button class="filter-btn" onclick="setPdmFilter('SAME',this)" style="font-size:0.7rem;">동일</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table id="pdm-table" style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+        <thead>
+          <tr style="background:#0f172a;color:var(--muted);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">
+            <th style="padding:8px 12px;text-align:left;">머신</th>
+            <th style="padding:8px 12px;text-align:left;">부품</th>
+            <th style="padding:8px 12px;text-align:right;">운전(월)</th>
+            <th style="padding:8px 12px;text-align:center;">PM 등급</th>
+            <th style="padding:8px 12px;text-align:center;">→</th>
+            <th style="padding:8px 12px;text-align:center;">PdM 등급</th>
+            <th style="padding:8px 12px;text-align:center;">변화</th>
+            <th style="padding:8px 12px;text-align:right;">신뢰도</th>
+            <th style="padding:8px 12px;text-align:right;">합의율</th>
+            <th style="padding:8px 12px;text-align:right;">RUL(월)</th>
+            <th style="padding:8px 12px;text-align:center;">투표 상세</th>
+          </tr>
+        </thead>
+        <tbody id="pdm-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Classifier Detail Modal -->
+  <div id="pdm-detail" class="card" style="background:var(--card);border:1px solid var(--border);border-radius:10px;display:none;padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 id="pdm-detail-title" style="font-size:0.95rem;font-weight:700;color:#a78bfa;"></h3>
+      <button onclick="document.getElementById('pdm-detail').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;">✕</button>
+    </div>
+    <!-- Vote Summary Bar -->
+    <div id="pdm-vote-summary" style="margin-bottom:14px;"></div>
+    <!-- Classifier Cards -->
+    <div id="pdm-detail-content" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;"></div>
+    <!-- Ensemble Probabilities -->
+    <div id="pdm-detail-ensemble" style="margin-top:14px;"></div>
+    <!-- Features -->
+    <div id="pdm-detail-features" style="margin-top:14px;"></div>
+  </div>
+
+</div><!-- /panel-pdm -->
+
+<!-- Pipeline Explainer Panel -->
+<div id="panel-pipeline" class="panel hidden" style="flex-direction:column;overflow-y:auto;padding:20px 24px;gap:16px;">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <h2 style="font-size:1.1rem;font-weight:700;color:#06b6d4;">PdM 모델 파이프라인 — 필드 엔지니어 가이드</h2>
+      <p style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Susto et al. (2015) Multiple Classifier Approach — Feature → Classifier → Weight → Ensemble Vote</p>
+    </div>
+    <button class="refresh-btn" onclick="loadPipelineData()" style="background:#0891b2;">파이프라인 로드</button>
+  </div>
+
+  <!-- SECTION 1: Feature Structure -->
+  <div class="card" style="background:var(--card);border:1px solid #06b6d433;border-radius:10px;padding:16px;">
+    <h3 style="font-size:0.9rem;font-weight:700;color:#06b6d4;margin-bottom:10px;">1단계: Feature 추출 (입력 데이터)</h3>
+    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:12px;">CMMS 이력 + 센서 신호에서 28개 feature를 추출하여 분류기에 입력합니다.</p>
+    <div id="pipeline-features" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;"></div>
+  </div>
+
+  <!-- SECTION 2: Classifiers -->
+  <div class="card" style="background:var(--card);border:1px solid #06b6d433;border-radius:10px;padding:16px;">
+    <h3 style="font-size:0.9rem;font-weight:700;color:#06b6d4;margin-bottom:10px;">2단계: 분류기 (5개 독립 판정)</h3>
+    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:12px;">각 분류기가 독립적으로 RUL 등급을 판정합니다. 서로 다른 알고리즘을 사용하여 다양성을 확보합니다.</p>
+    <div id="pipeline-classifiers" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+
+  <!-- SECTION 3: Weight Derivation -->
+  <div class="card" style="background:var(--card);border:1px solid #06b6d433;border-radius:10px;padding:16px;">
+    <h3 style="font-size:0.9rem;font-weight:700;color:#06b6d4;margin-bottom:10px;">3단계: 가중치 도출 (Log-odds)</h3>
+    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">각 분류기의 테스트 정확도에서 Log-odds 변환으로 가중치를 자동 도출합니다.</p>
+    <div style="background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-family:monospace;font-size:0.75rem;color:#06b6d4;line-height:1.8;">
+        <div>W<sub>i</sub> = log( Acc<sub>i</sub> / (1 - Acc<sub>i</sub>) )</div>
+        <div style="color:var(--muted);margin-top:4px;">정규화: W<sub>i</sub>' = W<sub>i</sub> / &Sigma; W<sub>j</sub> &nbsp; (합 = 1.0)</div>
+        <div style="color:var(--muted);margin-top:4px;">Acc &lt; 50% → 찬스 수준 이하 → 최소 가중치 부여</div>
+      </div>
+    </div>
+    <div id="pipeline-weights" style="display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+
+  <!-- SECTION 4: Ensemble Vote (Live) -->
+  <div class="card" style="background:var(--card);border:1px solid #06b6d433;border-radius:10px;padding:16px;">
+    <h3 style="font-size:0.9rem;font-weight:700;color:#06b6d4;margin-bottom:10px;">4단계: 앙상블 투표 (실시간 결과)</h3>
+    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;">선택한 부품에 대해 각 분류기의 투표와 가중치 적용 과정을 시각화합니다.</p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:0.72rem;color:var(--muted);">부품 선택:</span>
+      <select id="pipeline-part-select" onchange="renderPipelineVote()" style="background:var(--sidebar);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.75rem;padding:5px 8px;min-width:250px;"></select>
+    </div>
+    <div id="pipeline-vote" style="display:flex;flex-direction:column;gap:12px;"></div>
+  </div>
+
+</div><!-- /panel-pipeline -->
 
 </main>
 
@@ -1076,6 +1199,8 @@
     document.getElementById('tab-' + tabName).classList.add('active');
     if (tabName === 'optimizer') runOptimization();
     if (tabName === 'machines') renderMachineCards();
+    if (tabName === 'pdm') loadPdmData();
+    if (tabName === 'pipeline') loadPipelineData();
   }
 
   // ── Machine Status ────────────────────────────────────────────────────────────
@@ -1454,6 +1579,510 @@
       infoHtml += `<div class="info-item" style="grid-column:1/-1"><span class="info-label">권장사항</span><span class="info-value">${escHtml(r.strategy_reason)}</span></div>`;
     }
     document.getElementById('cost-curve-info').innerHTML = infoHtml;
+  }
+
+  // ── PdM Multiple Classifier (ML-trained) ───────────────────────────────────
+  let pdmData = null;
+  let pdmFilter = 'ALL';
+
+  async function loadPdmData() {
+    try {
+      const [res, modelRes] = await Promise.all([
+        fetch(`/api/pdm/all?reference_date=${getRefDate()}`),
+        fetch('/api/pdm/model-info'),
+      ]);
+      if (!res.ok) throw new Error('PdM API error');
+      pdmData = await res.json();
+      const modelInfo = modelRes.ok ? await modelRes.json() : null;
+      renderModelInfo(modelInfo);
+      renderPdmSummary();
+      renderPdmTable();
+    } catch (e) {
+      console.error('PdM load error:', e);
+    }
+  }
+
+  function renderModelInfo(info) {
+    const el = document.getElementById('pdm-model-info');
+    if (!info) { el.innerHTML = ''; return; }
+    const modelColors = {'survival_model':'#a78bfa','sbm':'#06b6d4','random_forest':'#22c55e','svm':'#3b82f6','gradient_boosting':'#f97316'};
+    const modelIcons = {'survival_model':'SM','sbm':'SBM','random_forest':'RF','svm':'SVM','gradient_boosting':'GB'};
+    el.innerHTML = info.models.map(m => {
+      const accPct = (m.accuracy * 100).toFixed(1);
+      const wPct = ((m.weight || 0) * 100).toFixed(1);
+      const c = modelColors[m.key] || '#a78bfa';
+      const icon = modelIcons[m.key] || '?';
+      const isML = m.type === 'ml-trained';
+      const isSensor = m.type === 'sensor-based';
+      const typeBg = isML ? c : isSensor ? '#06b6d4' : '#64748b';
+      return `<div style="background:#0f172a;border:1px solid ${c}33;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.7rem;font-weight:800;color:${c};background:${c}22;padding:2px 6px;border-radius:3px;">${icon}</span>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <span style="font-size:0.72rem;color:var(--text);font-weight:600;">${m.name}</span>
+          <span style="font-size:0.6rem;padding:1px 4px;border-radius:2px;background:${typeBg}22;color:${typeBg};border:1px solid ${typeBg}33;width:fit-content;">${isML?'ml-trained':isSensor?'sensor-based':'rule-based'}</span>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <div style="text-align:right;">
+            <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+              <span style="font-size:0.6rem;color:var(--muted);">acc</span>
+              <div style="width:40px;height:4px;background:#334155;border-radius:2px;overflow:hidden;"><div style="width:${accPct}%;height:100%;background:${c};border-radius:2px;"></div></div>
+              <span style="font-size:0.68rem;color:${c};font-weight:700;min-width:36px;text-align:right;">${accPct}%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:2px;">
+              <span style="font-size:0.6rem;color:var(--muted);">W</span>
+              <div style="width:40px;height:4px;background:#334155;border-radius:2px;overflow:hidden;"><div style="width:${wPct}%;height:100%;background:#a78bfa;border-radius:2px;"></div></div>
+              <span style="font-size:0.68rem;color:#a78bfa;font-weight:700;min-width:36px;text-align:right;">${wPct}%</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Weight method label
+    if (info.weight_method) {
+      el.innerHTML += `<div style="grid-column:1/-1;text-align:right;font-size:0.62rem;color:var(--muted);margin-top:-6px;">가중치 도출: ${info.weight_method}</div>`;
+    }
+  }
+
+  function renderPdmSummary() {
+    if (!pdmData) return;
+    const rs = pdmData.pdm_risk_summary;
+    const ch = pdmData.pm_vs_pdm_changes;
+
+    document.getElementById('pdm-summary').innerHTML = `
+      <div style="background:#14532d33;border:1px solid #22c55e44;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--green);">${rs.GREEN}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">GREEN</div>
+      </div>
+      <div style="background:#78350f33;border:1px solid #eab30844;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--yellow);">${rs.YELLOW}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">YELLOW</div>
+      </div>
+      <div style="background:#7c2d1233;border:1px solid #f9731644;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--orange);">${rs.ORANGE}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">ORANGE</div>
+      </div>
+      <div style="background:#7f1d1d33;border:1px solid #ef444444;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--red);">${rs.RED}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">RED</div>
+      </div>
+      <div style="width:1px;background:var(--border);"></div>
+      <div style="background:#1e293b;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:#94a3b8;">${ch.SAME}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">PM=PdM 동일</div>
+      </div>
+      <div style="background:#7c2d1233;border:1px solid #f9731644;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:#f97316;">${ch.UPGRADED}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">위험 상향 ▲</div>
+      </div>
+      <div style="background:#14532d33;border:1px solid #22c55e44;border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:#22c55e;">${ch.DOWNGRADED}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">위험 하향 ▼</div>
+      </div>`;
+  }
+
+  function renderPdmTable() {
+    if (!pdmData) return;
+    const tbody = document.getElementById('pdm-table-body');
+    const preds = pdmData.predictions.filter(p =>
+      pdmFilter === 'ALL' || p.pdm_vs_pm === pdmFilter
+    );
+
+    const riskSort = { RED: 0, ORANGE: 1, YELLOW: 2, GREEN: 3 };
+    preds.sort((a, b) => riskSort[a.pdm_risk_level] - riskSort[b.pdm_risk_level]);
+
+    tbody.innerHTML = preds.map((p, i) => {
+      const pmColor = riskColors[p.pm_risk_level];
+      const pdmColor = riskColors[p.pdm_risk_level];
+      const changeIcon = p.pdm_vs_pm === 'UPGRADED' ? '▲' : p.pdm_vs_pm === 'DOWNGRADED' ? '▼' : '—';
+      const changeColor = p.pdm_vs_pm === 'UPGRADED' ? '#f97316' : p.pdm_vs_pm === 'DOWNGRADED' ? '#22c55e' : '#64748b';
+      const confPct = (p.pdm_confidence * 100).toFixed(0);
+      const agrPct = (p.agreement_ratio * 100).toFixed(0);
+      const rul = p.estimated_rul_months != null ? p.estimated_rul_months : '—';
+      const rowBg = i % 2 === 0 ? '' : 'background:#0f172a33;';
+
+      // Mini vote indicators for each classifier
+      const clfs = p.classifiers || [];
+      const voteHtml = clfs.map(c => {
+        const vc = riskColors[c.predicted_class];
+        const initial = c.model_type === 'ml-trained' ? c.name.split(' ').map(w=>w[0]).join('').substring(0,2) : 'SM';
+        return `<span title="${c.name}: ${c.predicted_class}" style="display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:3px;font-size:0.55rem;font-weight:700;background:${vc}22;color:${vc};border:1px solid ${vc}55;">${initial}</span>`;
+      }).join('');
+
+      return `<tr style="${rowBg}cursor:default;" onmouseover="this.style.background='#263452'" onmouseout="this.style.background='${i%2?'#0f172a33':''}'" >
+        <td style="padding:7px 12px;color:var(--muted);font-size:0.72rem;">${escHtml(p.machine_name)}</td>
+        <td style="padding:7px 12px;font-weight:600;">${escHtml(p.part_name)}</td>
+        <td style="padding:7px 12px;text-align:right;">${p.operating_months.toFixed(1)}</td>
+        <td style="padding:7px 12px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${pmColor}22;color:${pmColor};border:1px solid ${pmColor}55;">${p.pm_risk_level}</span></td>
+        <td style="padding:7px 12px;text-align:center;color:var(--muted);">→</td>
+        <td style="padding:7px 12px;text-align:center;"><span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${pdmColor}22;color:${pdmColor};border:1px solid ${pdmColor}55;">${p.pdm_risk_level}</span></td>
+        <td style="padding:7px 12px;text-align:center;font-weight:700;color:${changeColor};">${changeIcon}</td>
+        <td style="padding:7px 12px;text-align:right;"><div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;"><div style="width:40px;height:5px;background:#334155;border-radius:3px;overflow:hidden;"><div style="width:${confPct}%;height:100%;background:#a78bfa;border-radius:3px;"></div></div><span style="font-size:0.72rem;">${confPct}%</span></div></td>
+        <td style="padding:7px 12px;text-align:right;font-size:0.75rem;color:${parseFloat(agrPct)>=75?'#22c55e':'#eab308'}">${agrPct}%</td>
+        <td style="padding:7px 12px;text-align:right;font-weight:600;color:${rul<=1?'var(--red)':rul<=3?'var(--orange)':rul<=6?'var(--yellow)':'var(--green)'};">${rul}</td>
+        <td style="padding:7px 12px;text-align:center;">
+          <div style="display:flex;align-items:center;gap:2px;justify-content:center;cursor:pointer;" onclick="showPdmDetail(${i})">
+            ${voteHtml}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function setPdmFilter(filter, btn) {
+    pdmFilter = filter;
+    document.querySelectorAll('#panel-pdm .filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderPdmTable();
+  }
+
+  function showPdmDetail(idx) {
+    if (!pdmData) return;
+    const preds = pdmData.predictions.filter(p =>
+      pdmFilter === 'ALL' || p.pdm_vs_pm === pdmFilter
+    );
+    const riskSort = { RED: 0, ORANGE: 1, YELLOW: 2, GREEN: 3 };
+    preds.sort((a, b) => riskSort[a.pdm_risk_level] - riskSort[b.pdm_risk_level]);
+    const p = preds[idx];
+    if (!p) return;
+
+    const detail = document.getElementById('pdm-detail');
+    detail.style.display = 'block';
+    document.getElementById('pdm-detail-title').textContent =
+      `${p.part_name} — 분류기 상세 (${p.machine_name})`;
+
+    // Vote Summary: horizontal stacked bar showing each classifier's weighted vote
+    const clfs = p.classifiers || [];
+    const totalWeight = clfs.reduce((s, c) => s + c.weight, 0);
+    document.getElementById('pdm-vote-summary').innerHTML = `
+      <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:6px;">분류기별 투표 (Vote) & 가중치 (Weight)</div>
+      <div style="display:flex;height:32px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
+        ${clfs.map(c => {
+          const vc = riskColors[c.predicted_class];
+          const wPct = ((c.weight / totalWeight) * 100).toFixed(0);
+          const typeBadge = c.model_type === 'ml-trained' ? 'ML' : 'Rule';
+          return `<div style="flex:${c.weight};background:${vc}22;display:flex;align-items:center;justify-content:center;gap:4px;border-right:1px solid #334155;position:relative;" title="${c.name}: ${c.predicted_class} (${wPct}%)">
+            <span style="font-size:0.65rem;font-weight:700;color:${vc};">${c.predicted_class}</span>
+            <span style="font-size:0.58rem;color:var(--muted);">${c.name.split(' ')[0]}</span>
+            <span style="font-size:0.55rem;padding:1px 3px;border-radius:2px;background:${c.model_type==='ml-trained'?'#3b82f622':'#64748b22'};color:${c.model_type==='ml-trained'?'#60a5fa':'#94a3b8'};">${typeBadge}</span>
+            <span style="font-size:0.58rem;color:var(--muted);">${wPct}%</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    // Classifier detail cards
+    document.getElementById('pdm-detail-content').innerHTML = clfs.map(c => {
+      const color = riskColors[c.predicted_class];
+      const confPct = (c.confidence * 100).toFixed(0);
+      const weightPct = (c.weight * 100).toFixed(0);
+      const probs = c.class_probabilities || {};
+      const isML = c.model_type === 'ml-trained';
+      const isSensor = c.model_type === 'sensor-based';
+      const accPct = (isML || isSensor) ? ((c.accuracy || 0) * 100).toFixed(1) : '—';
+      const typeBg = isML ? '#3b82f6' : isSensor ? '#06b6d4' : '#64748b';
+
+      const bars = ['RED','ORANGE','YELLOW','GREEN'].map(cls => {
+        const pct = ((probs[cls] || 0) * 100).toFixed(0);
+        return `<div style="display:flex;align-items:center;gap:4px;font-size:0.65rem;">
+          <span style="width:10px;height:10px;border-radius:2px;background:${riskColors[cls]};flex-shrink:0;"></span>
+          <div style="flex:1;height:4px;background:#334155;border-radius:2px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${riskColors[cls]};"></div>
+          </div>
+          <span style="color:var(--muted);min-width:28px;text-align:right;">${pct}%</span>
+        </div>`;
+      }).join('');
+
+      return `<div style="background:#0f172a;border:1px solid ${color}44;border-radius:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:0.78rem;font-weight:700;color:var(--text);">${escHtml(c.name)}</span>
+          <span style="font-size:0.6rem;padding:2px 5px;border-radius:3px;background:${typeBg}22;color:${typeBg};border:1px solid ${typeBg}44;">${isML?'ML-trained':isSensor?'Sensor-SBM':'Rule-based'}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:700;background:${color}22;color:${color};border:1px solid ${color}55;">${c.predicted_class}</span>
+          <span style="font-size:0.7rem;color:var(--muted);">conf ${confPct}%</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;font-size:0.65rem;color:var(--muted);">
+          <span>가중치: <b style="color:var(--text);">${weightPct}%</b></span>
+          ${(isML||isSensor) ? `<span>정확도: <b style="color:${typeBg};">${accPct}%</b></span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;">${bars}</div>
+        <div style="margin-top:6px;font-size:0.62rem;color:var(--muted);font-family:monospace;word-break:break-all;">${escHtml(c.detail)}</div>
+      </div>`;
+    }).join('');
+
+    // Ensemble probabilities
+    const ep = p.ensemble_probabilities || {};
+    document.getElementById('pdm-detail-ensemble').innerHTML = `
+      <div style="font-size:0.78rem;font-weight:700;color:var(--text);margin-bottom:8px;">앙상블 최종 확률 (가중 투표 결과)</div>
+      <div style="display:flex;gap:8px;height:32px;">
+        ${['GREEN','YELLOW','ORANGE','RED'].map(cls => {
+          const pct = ((ep[cls] || 0) * 100).toFixed(1);
+          return `<div style="flex:${Math.max(parseFloat(pct),2)};background:${riskColors[cls]}44;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:${riskColors[cls]};border:1px solid ${riskColors[cls]}55;">${cls} ${pct}%</div>`;
+        }).join('')}
+      </div>`;
+
+    detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Pipeline Explainer Tab ─────────────────────────────────────────────────
+  let pipelineModelInfo = null;
+  let pipelinePdmData = null;
+
+  async function loadPipelineData() {
+    try {
+      const [modelRes, pdmRes] = await Promise.all([
+        fetch('/api/pdm/model-info'),
+        fetch(`/api/pdm/all?reference_date=${getRefDate()}`),
+      ]);
+      if (modelRes.ok) pipelineModelInfo = await modelRes.json();
+      if (pdmRes.ok) pipelinePdmData = await pdmRes.json();
+      renderPipelineFeatures();
+      renderPipelineClassifiers();
+      renderPipelineWeights();
+      populatePipelinePartSelect();
+      renderPipelineVote();
+    } catch (e) {
+      console.error('Pipeline load error:', e);
+    }
+  }
+
+  function renderPipelineFeatures() {
+    const el = document.getElementById('pipeline-features');
+    if (!pipelineModelInfo) { el.innerHTML = '<p style="color:var(--muted);font-size:0.75rem;">데이터를 로드하세요.</p>'; return; }
+    const categories = [
+      {
+        title: 'CMMS 시간 기반', color: '#a78bfa',
+        features: ['operating_months','equipment_age_years','equipment_type_encoded','age_ratio'],
+        desc: { operating_months:'현재 운전 개월수', equipment_age_years:'장비 설치 후 경과 연수', equipment_type_encoded:'장비 유형 (OLD=0, NEW=1)', age_ratio:'운전월수 / 장비나이' }
+      },
+      {
+        title: 'CMMS 이력 기반', color: '#3b82f6',
+        features: ['n_past_replacements','mean_past_lifetime','std_past_lifetime','cv_lifetime','last_lifetime_ratio','part_encoded'],
+        desc: { n_past_replacements:'과거 교체 횟수', mean_past_lifetime:'평균 부품 수명 (월)', std_past_lifetime:'수명 표준편차', cv_lifetime:'수명 변동계수 (CV)', last_lifetime_ratio:'최근 수명 / 평균 수명', part_encoded:'부품 유형 인코딩' }
+      },
+      {
+        title: '생존곡선 기반', color: '#22c55e',
+        features: ['current_survival','current_failure','current_hazard','hazard_slope','beta_estimate','months_to_median_life','months_to_80pct_surv'],
+        desc: { current_survival:'현재 생존확률 S(t)', current_failure:'현재 고장확률 F(t)', current_hazard:'현재 위험률 h(t)', hazard_slope:'위험률 기울기 (증가 추세)', beta_estimate:'Weibull β 추정값', months_to_median_life:'중앙 수명까지 남은 월수', months_to_80pct_surv:'80% 생존까지 남은 월수' }
+      },
+      {
+        title: '센서 신호 기반', color: '#06b6d4',
+        features: ['vibration_rms','vibration_peak','vibration_kurtosis','vibration_crest_factor','temperature_mean','temperature_trend','current_mean','current_std','sensor_health_index','sensor_residual','sensor_degradation_rate'],
+        desc: { vibration_rms:'진동 RMS 레벨', vibration_peak:'진동 피크 값', vibration_kurtosis:'진동 첨도 (충격 지표)', vibration_crest_factor:'진동 크레스트 팩터', temperature_mean:'평균 온도', temperature_trend:'온도 추세 (기울기)', current_mean:'평균 전류', current_std:'전류 표준편차', sensor_health_index:'센서 종합 건강지수', sensor_residual:'센서 잔차 (정상 대비)', sensor_degradation_rate:'열화 진행 속도' }
+      },
+    ];
+    el.innerHTML = categories.map(cat => `
+      <div style="background:#0f172a;border:1px solid ${cat.color}33;border-radius:8px;padding:12px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:0.85rem;font-weight:700;color:${cat.color};">${cat.title}</span>
+          <span style="font-size:0.62rem;color:var(--muted);background:${cat.color}22;padding:1px 5px;border-radius:3px;">${cat.features.length}개</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${cat.features.map(f => `
+            <div style="display:flex;align-items:center;gap:6px;font-size:0.68rem;">
+              <span style="width:6px;height:6px;border-radius:50%;background:${cat.color};flex-shrink:0;"></span>
+              <span style="color:var(--text);font-family:monospace;font-size:0.65rem;min-width:140px;">${f}</span>
+              <span style="color:var(--muted);font-size:0.62rem;">${cat.desc[f] || ''}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderPipelineClassifiers() {
+    const el = document.getElementById('pipeline-classifiers');
+    if (!pipelineModelInfo) { el.innerHTML = ''; return; }
+    const details = {
+      survival_model: {
+        algorithm: 'Rule-based (F(t) thresholds)',
+        inputType: 'CMMS 생존곡선 feature 1개',
+        params: ['F(t) >= 0.35 → RED','F(t) >= 0.20 → ORANGE','F(t) >= 0.10 → YELLOW','else → GREEN'],
+        description: 'CMMS 생존곡선의 고장확률 F(t)에 기반한 규칙 분류기. 임계값을 직접 설정하여 해석이 용이합니다.',
+        color: '#a78bfa',
+      },
+      sbm: {
+        algorithm: 'Mahalanobis Distance (정상 프로파일)',
+        inputType: 'Sensor feature 11개',
+        params: ['μ, Σ from GREEN samples','D = sqrt((x-μ)ᵀΣ⁻¹(x-μ))','거리 임계값 자동 도출 (percentile)'],
+        description: '정상(GREEN) 샘플의 센서 분포를 학습하고, Mahalanobis 거리로 이상 정도를 측정합니다.',
+        color: '#06b6d4',
+      },
+      random_forest: {
+        algorithm: 'Random Forest (Ensemble of Decision Trees)',
+        inputType: 'CMMS + Sensor 전체 28개',
+        params: ['n_estimators: 150','max_depth: 10','min_samples_leaf: 5','class_weight: balanced'],
+        description: '150개 결정 트리의 다수결 투표. 특성 중요도를 자동으로 학습하며 과적합에 강합니다.',
+        color: '#22c55e',
+      },
+      svm: {
+        algorithm: 'Support Vector Machine (RBF Kernel)',
+        inputType: 'CMMS + Sensor 전체 28개 (정규화)',
+        params: ['kernel: RBF','C: 10.0','gamma: scale','probability: True'],
+        description: 'RBF 커널로 고차원 공간에서 클래스 경계를 학습합니다. StandardScaler로 정규화 후 입력됩니다.',
+        color: '#3b82f6',
+      },
+      gradient_boosting: {
+        algorithm: 'Gradient Boosting (Sequential Trees)',
+        inputType: 'CMMS + Sensor 전체 28개',
+        params: ['n_estimators: 150','max_depth: 5','learning_rate: 0.1','min_samples_leaf: 10'],
+        description: '이전 트리의 잔차를 순차적으로 보정. 가장 높은 정확도를 보이며 세밀한 확률 추정이 가능합니다.',
+        color: '#f97316',
+      },
+    };
+    el.innerHTML = pipelineModelInfo.models.map(m => {
+      const d = details[m.key] || {};
+      const c = d.color || '#64748b';
+      const accPct = (m.accuracy * 100).toFixed(1);
+      const wPct = (m.weight * 100).toFixed(1);
+      return `
+      <div style="background:#0f172a;border:1px solid ${c}33;border-radius:8px;padding:14px;display:grid;grid-template-columns:200px 1fr 200px;gap:16px;align-items:start;">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:0.9rem;font-weight:700;color:${c};">${m.name}</span>
+          </div>
+          <span style="font-size:0.6rem;padding:2px 6px;border-radius:3px;background:${c}22;color:${c};border:1px solid ${c}33;">${m.type}</span>
+          <div style="margin-top:8px;font-size:0.68rem;color:var(--muted);line-height:1.5;">${d.description || ''}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:600;color:var(--text);margin-bottom:4px;">${d.algorithm || ''}</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-bottom:6px;">입력: ${d.inputType || ''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${(d.params || []).map(p => `<span style="font-size:0.62rem;font-family:monospace;padding:2px 6px;border-radius:3px;background:#334155;color:var(--text);">${p}</span>`).join('')}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="margin-bottom:6px;">
+            <div style="font-size:0.6rem;color:var(--muted);margin-bottom:2px;">정확도 (Accuracy)</div>
+            <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+              <div style="width:80px;height:6px;background:#334155;border-radius:3px;overflow:hidden;">
+                <div style="width:${accPct}%;height:100%;background:${c};border-radius:3px;"></div>
+              </div>
+              <span style="font-size:0.78rem;font-weight:700;color:${c};min-width:42px;">${accPct}%</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.6rem;color:var(--muted);margin-bottom:2px;">가중치 (Weight)</div>
+            <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+              <div style="width:80px;height:6px;background:#334155;border-radius:3px;overflow:hidden;">
+                <div style="width:${wPct}%;height:100%;background:#a78bfa;border-radius:3px;"></div>
+              </div>
+              <span style="font-size:0.78rem;font-weight:700;color:#a78bfa;min-width:42px;">${wPct}%</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPipelineWeights() {
+    const el = document.getElementById('pipeline-weights');
+    if (!pipelineModelInfo) { el.innerHTML = ''; return; }
+    const mc = {survival_model:'#a78bfa',sbm:'#06b6d4',random_forest:'#22c55e',svm:'#3b82f6',gradient_boosting:'#f97316'};
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:160px repeat(4,1fr);gap:0;font-size:0.7rem;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <div style="padding:8px 10px;background:#0f172a;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);">분류기</div>
+        <div style="padding:8px 10px;background:#0f172a;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);text-align:right;">Acc</div>
+        <div style="padding:8px 10px;background:#0f172a;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);text-align:right;">log(Acc/(1-Acc))</div>
+        <div style="padding:8px 10px;background:#0f172a;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);text-align:right;">W (정규화)</div>
+        <div style="padding:8px 10px;background:#0f172a;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);">비중</div>
+        ${pipelineModelInfo.models.map((m, i) => {
+          const c = mc[m.key] || '#94a3b8';
+          const acc = m.accuracy;
+          const accClipped = Math.max(Math.min(acc, 0.999), 0.501);
+          const logOdds = Math.log(accClipped / (1 - accClipped));
+          const wPct = (m.weight * 100).toFixed(1);
+          const bdr = i < pipelineModelInfo.models.length - 1 ? 'border-bottom:1px solid var(--border);' : '';
+          return `
+            <div style="padding:8px 10px;${bdr}display:flex;align-items:center;gap:6px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0;"></span>
+              <span style="color:var(--text);font-weight:600;">${m.name}</span>
+            </div>
+            <div style="padding:8px 10px;${bdr}text-align:right;color:${c};font-weight:700;font-family:monospace;">${(acc*100).toFixed(1)}%</div>
+            <div style="padding:8px 10px;${bdr}text-align:right;font-family:monospace;color:${logOdds < 0.1 ? '#ef4444' : 'var(--text)'};">${logOdds.toFixed(4)}</div>
+            <div style="padding:8px 10px;${bdr}text-align:right;font-weight:700;color:#a78bfa;font-family:monospace;">${wPct}%</div>
+            <div style="padding:8px 10px;${bdr}">
+              <div style="width:100%;height:8px;background:#334155;border-radius:4px;overflow:hidden;">
+                <div style="width:${wPct}%;height:100%;background:${c};border-radius:4px;"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:8px;font-size:0.65rem;color:var(--muted);line-height:1.6;">
+        <span style="color:#ef4444;">*</span> Acc &lt; 50%인 분류기는 찬스 수준이므로 log-odds가 매우 작아 자동으로 최소 가중치가 부여됩니다.<br>
+        <span style="color:#22c55e;">*</span> ML 학습 분류기 (RF, SVM, GB)가 높은 정확도로 대부분의 가중치를 차지합니다.
+      </div>`;
+  }
+
+  function populatePipelinePartSelect() {
+    const sel = document.getElementById('pipeline-part-select');
+    if (!pipelinePdmData) return;
+    const preds = pipelinePdmData.predictions || [];
+    sel.innerHTML = preds.map((p, i) =>
+      `<option value="${i}">${p.machine_name} — ${p.part_name} (${p.pdm_risk_level})</option>`
+    ).join('');
+  }
+
+  function renderPipelineVote() {
+    const el = document.getElementById('pipeline-vote');
+    if (!pipelinePdmData) { el.innerHTML = '<p style="color:var(--muted);font-size:0.75rem;">데이터를 로드하세요.</p>'; return; }
+    const sel = document.getElementById('pipeline-part-select');
+    const idx = parseInt(sel.value) || 0;
+    const preds = pipelinePdmData.predictions || [];
+    const p = preds[idx];
+    if (!p) return;
+
+    const clfs = p.classifiers || [];
+    const totalWeight = clfs.reduce((s, c) => s + c.weight, 0);
+    const mc = {'Survival Model':'#a78bfa','SBM (Sensor)':'#06b6d4','Random Forest':'#22c55e','SVM (RBF)':'#3b82f6','Gradient Boosting':'#f97316'};
+    const ep = p.ensemble_probabilities || {};
+    const pdmColor = riskColors[p.pdm_risk_level];
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+        ${clfs.map(c => {
+          const vc = riskColors[c.predicted_class];
+          const color = mc[c.name] || '#94a3b8';
+          const confPct = (c.confidence * 100).toFixed(0);
+          const wPct = totalWeight > 0 ? ((c.weight / totalWeight) * 100).toFixed(1) : '0';
+          const probs = c.class_probabilities || {};
+          return `
+          <div style="background:#0f172a;border:1px solid ${color}33;border-radius:8px;padding:10px 12px;">
+            <div style="text-align:center;margin-bottom:6px;">
+              <span style="font-size:0.72rem;font-weight:700;color:${color};">${c.name}</span>
+            </div>
+            <div style="text-align:center;margin-bottom:6px;">
+              <span style="padding:3px 12px;border-radius:4px;font-size:0.82rem;font-weight:700;background:${vc}22;color:${vc};border:1px solid ${vc}55;">${c.predicted_class}</span>
+            </div>
+            <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:4px;">
+              ${['GREEN','YELLOW','ORANGE','RED'].map(cls => {
+                const pct = ((probs[cls] || 0) * 100);
+                return pct > 0 ? '<div style="flex:'+pct+';background:'+riskColors[cls]+'44;display:flex;align-items:center;justify-content:center;font-size:0.5rem;font-weight:700;color:'+riskColors[cls]+';">'+(pct >= 12 ? pct.toFixed(0)+'%' : '')+'</div>' : '';
+              }).join('')}
+            </div>
+            <div style="text-align:center;font-size:0.62rem;color:var(--muted);">
+              conf ${confPct}% · W ${wPct}%
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="text-align:center;font-size:1.1rem;color:#06b6d4;padding:4px 0;">
+        ▼ &nbsp; 가중 투표 (Weighted Vote) &nbsp; ▼
+      </div>
+      <div style="background:#0f172a;border:2px solid ${pdmColor}55;border-radius:10px;padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px;">
+          <span style="font-size:0.85rem;font-weight:700;color:var(--text);">앙상블 최종 결과:</span>
+          <span style="padding:4px 20px;border-radius:6px;font-size:1.1rem;font-weight:800;background:${pdmColor}22;color:${pdmColor};border:2px solid ${pdmColor}55;">${p.pdm_risk_level}</span>
+          <span style="font-size:0.85rem;color:var(--muted);">신뢰도 <b style="color:var(--text);">${(p.pdm_confidence * 100).toFixed(0)}%</b></span>
+          <span style="font-size:0.85rem;color:var(--muted);">합의율 <b style="color:${p.agreement_ratio >= 0.75 ? '#22c55e' : '#eab308'};">${(p.agreement_ratio * 100).toFixed(0)}%</b></span>
+        </div>
+        <div style="display:flex;height:36px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
+          ${['GREEN','YELLOW','ORANGE','RED'].map(cls => {
+            const pct = ((ep[cls] || 0) * 100);
+            return '<div style="flex:'+Math.max(pct,1)+';background:'+riskColors[cls]+'44;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:'+riskColors[cls]+';border-right:1px solid #334155;">'+(pct >= 8 ? cls+' '+pct.toFixed(1)+'%' : '')+'</div>';
+          }).join('')}
+        </div>
+        ${p.estimated_rul_months != null ? '<div style="text-align:center;margin-top:8px;font-size:0.75rem;color:var(--muted);">예상 잔여 수명 (RUL): <b style="color:'+pdmColor+';">'+p.estimated_rul_months+'개월</b></div>' : ''}
+      </div>`;
   }
 </script>
 </body>

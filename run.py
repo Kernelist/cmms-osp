@@ -28,15 +28,16 @@ def main():
     # 2. Start FastAPI server
     import uvicorn
 
-    print("Starting CMMS Monitoring API on http://localhost:8000")
-    print("Dashboard: http://localhost:8000/")
-    print("API docs:  http://localhost:8000/docs")
+    print("Starting CMMS PdM Monitoring API on http://localhost:8003")
+    print("Dashboard:  http://localhost:8003/")
+    print("API docs:   http://localhost:8003/docs")
+    print("PdM predict: http://localhost:8003/api/pdm/all")
     print("Press Ctrl+C to stop.\n")
 
     uvicorn.run(
         "api.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8003,
         reload=False,
         log_level="info",
     )
